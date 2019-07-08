@@ -1,0 +1,12 @@
+[package]
+name = "mail-indicator"
+version = "0.1.0"
+authors = ["fpalacios <fedenator7@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+libappindicator = "0.4.0"
+gtk             = "0.4.0"
+glib            = "0.5.0"
+imap            = "1.0.2"
+native-tls      = "0.2"
