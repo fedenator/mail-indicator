@@ -7,11 +7,14 @@ pub struct Config {
 	pub imap_config  : Arc<ImapConfig>,
 }
 
+unsafe impl Send for Config {}
+unsafe impl Sync for Config {}
+
 impl Config {
-	pub fn new() -> Self {
+	pub fn new(access_token: String) -> Self {
 		return Config {
 			assets_folder: std::env::current_dir().unwrap().join("assets"),
-			imap_config  : Arc::new( ImapConfig::new() ),
+			imap_config  : Arc::new( ImapConfig::new(access_token) ),
 		};
 	}
 }
@@ -26,10 +29,10 @@ pub struct ImapConfig {
 }
 
 impl ImapConfig {
-	pub fn new() -> Self {
+	pub fn new(access_token: String) -> Self {
 		return ImapConfig {
 			username     : String::from("fpalacios@scanntech.com"),
-			access_token : String::from(""),
+			access_token : access_token,
 			dominio      : "imap.gmail.com",
 			puerto       : 993,
 		};

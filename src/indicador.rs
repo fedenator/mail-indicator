@@ -1,5 +1,4 @@
 use std::sync::{ Arc, Mutex };
-use std::cell::{ RefCell };
 
 use gtk::{ MenuItemExt, MenuShellExt, WidgetExt };
 
@@ -7,13 +6,15 @@ use libappindicator::{ AppIndicator, AppIndicatorStatus };
 
 use crate::config::{ Config };
 
-
 /// Indicador en la barra de estado
 #[derive(Clone)]
 pub struct Indicador {
 	app_indicator: Arc< Mutex<AppIndicator> >,
 	menu         : gtk::Menu
 }
+
+unsafe impl Send for Indicador {}
+unsafe impl Sync for Indicador {}
 
 impl Indicador {
 	pub fn new(config: &Config) -> Self {
