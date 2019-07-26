@@ -1,4 +1,5 @@
 use std::sync::{ Arc };
+use std::convert::{ TryFrom };
 
 use crate::config::{ ImapConfig };
 
@@ -18,7 +19,7 @@ impl Mail {
 	}
 
 	pub fn actualizar(&mut self) {
-		let gmail_auth = GMailOAuth2 {
+		let gmail_auth = crate::autenticadores::gmail_authenticator::GMailOAuth2 {
 			usuario     : self.imap_config.username.clone(),
 			access_token: self.imap_config.access_token.clone()
 		};
@@ -36,31 +37,19 @@ impl Mail {
 			&conector_tls
 		).expect("Error al establecer la conexión con el servidor de correo.");
 
+		println!("Credenciales {:?}", gmail_auth);
+
 		let mut sesion_imap = cliente_imap.authenticate("XOAUTH2", &gmail_auth)
 			.expect("Error al autentificarse en el servidor de correo.");
 
-		let unseen: imap::types::Mailbox = sesion_imap.select("UNSEEN")
-			.expect("Error al traer el inbox");
 
-		self.cantidad_mails_sin_leer = unseen.exists;
-	}
-}
+		//TODO(fpalacios): revisar que esto sea correcto o necesario
+		sesion_imap.examine("INBOX").expect("Error al traer el inbox");
 
-/*------------ Implementaciones especificas de imap::Authenticator por proveedor --------------- */
-//GMAIL
-struct GMailOAuth2 {
-	usuario     : String,
-	access_token: String,
-}
+		let unseen = sesion_imap.search("(UNSEEN)").unwrap();
+		let unseen_count = u32::try_from( unseen.len() ).unwrap();
+		dbg!(unseen_count);
 
-impl imap::Authenticator for GMailOAuth2 {
-	type Response = String;
-
-	fn process(&self, _data: &[u8]) -> Self::Response {
-		return format!(
-			"user={usuario}\x01auth=Bearer {access_token}\x01\x01",
-			usuario      = self.usuario,
-			access_token = self.access_token,
-		);
+		self.cantidad_mails_sin_leer = unseen_count;
 	}
 }
