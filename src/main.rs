@@ -23,7 +23,7 @@ fn main() {
 	std::thread::Builder::new()
 		.name( String::from("update-mail-indicator-thread") )
 		.spawn(move || {
-			let config_arc    = Arc::new( Mutex::new(config) );
+			let config_arc    = Arc::new( config );
 			let indicador_arc = Arc::new( Mutex::new(indicador) );
 
 			loop {
@@ -34,7 +34,7 @@ fn main() {
 
 				glib::source::idle_add( move || {
 					indicador_clone.lock().unwrap().cambiar_icono(
-						&config_clone.lock().unwrap(),
+						&config_clone,
 						count_mails_sin_leer
 					);
 
