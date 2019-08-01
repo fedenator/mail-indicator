@@ -1,18 +1,36 @@
+pub type TokenResponse = oauth2::StandardTokenResponse< oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType >;
+
 /// Retorna el token de access_grant a partir de la peticion que envia el browser cuando
 /// el usuario autoriza a la aplicacion, puede fallar en caso de que no exista el token
 #[inline]
-fn obtener_access_grant_de_redirect_oauth(
-	request: http::Request<()>
-) -> Result<String, ()>
+fn obtener_authorization_code_de_redirect_oauth(
+	request   : http::Request<()>,
+	csrf_token: &oauth2::CsrfToken,
+) -> Result<oauth2::AuthorizationCode, ()>
 {
 	let url = url::Url
 		::parse( &format!( "http://localhost{}", request.uri() ) )
 		.map_err( |_| () )?;
 
+	let mut code  : Option<String> = None;
+	let mut status: Option<String> = None;
 
 	for (key, value) in url.query_pairs() {
-		if key == "code" {
-			return Ok( value.to_string() );
+		match key.as_ref() {
+			"code" => {
+				code = Some( value.into() );
+			}
+			"status" => {
+				status = Some( value.into() );
+			}
+			_ => {}
+		};
+	}
+
+	if let ( Some(code), Some(status) ) = (code, status) {
+		if csrf_token.secret() == &status {
+			println!("Token status valid");
+			return Ok( oauth2::AuthorizationCode::new( code.to_owned() ) )
 		}
 	}
 
@@ -21,16 +39,16 @@ fn obtener_access_grant_de_redirect_oauth(
 
 /// Retorna el token de access_grant que envia el navegador mediante un redirect a la url de redireccion
 #[inline]
-fn atender_redirect() -> Result<String, ()> {
+fn atender_redirect(csrf_token: &oauth2::CsrfToken) -> Result<oauth2::AuthorizationCode, ()> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:8080").unwrap();
 	let stream = listener.incoming().next().unwrap();
 
 	if let Ok(mut stream) = stream {
-		let mut result: Result<String, ()> = Err( () );
+		let mut result: Result<oauth2::AuthorizationCode, ()> = Err( () );
 
 		let request = crate::http::leer_mensaje_http(&stream)?;
 
-		if let Ok(access_grant) = obtener_access_grant_de_redirect_oauth(request) {
+		if let Ok(access_grant) = obtener_authorization_code_de_redirect_oauth(request, &csrf_token) {
 			result = Ok(access_grant);
 		}
 
@@ -43,9 +61,9 @@ fn atender_redirect() -> Result<String, ()> {
 }
 
 #[inline]
-fn abrir_link_en_navegador(link: &str) {
+fn abrir_url_en_navegador(url: &url::Url) {
 	std::process::Command::new("x-www-browser")
-		.arg(link)
+		.arg( url.as_str() )
 		.spawn()
 		.expect("Error al abrir link en el navegador");
 }
@@ -53,15 +71,35 @@ fn abrir_link_en_navegador(link: &str) {
 /// Le pide al usuario que autorice en el navegador, atiende el redirect y retorna el token
 /// si no hubo ningun problema
 pub fn conseguir_oauth_access_token(
-	mut config: oauth2::Config
-) -> Result<String, ()>
+	mut client: oauth2::basic::BasicClient,
+	scopes: Vec<oauth2::Scope>,
+) -> Result<crate::oauth::TokenResponse, ()>
 {
-	config = config.set_redirect_url("http://localhost:8080");
+	client = client.set_redirect_url(
+		oauth2::RedirectUrl::new(url::Url::parse("http://localhost:8080").map_err( |_| () )? )
+	);
 
-	abrir_link_en_navegador( &config.authorize_url().into_string() );
-	let access_grant = atender_redirect()?;
+	let (pkce_challenge, pkce_verifier) = oauth2::PkceCodeChallenge::new_random_sha256();
 
-	let access_token = config.exchange_code(access_grant);
+	let mut auth_url_builder = client
+		.authorize_url(oauth2::CsrfToken::new_random);
 
-	return Ok(access_token.unwrap().access_token);
+	for scope in scopes {
+		auth_url_builder = auth_url_builder.add_scope(scope);
+	}
+
+	let (auth_url, csrf_token) = auth_url_builder
+		.set_pkce_challenge(pkce_challenge)
+		.url();
+
+	abrir_url_en_navegador(&auth_url);
+
+	let access_grant = atender_redirect(&csrf_token)?;
+
+	let access_token = client.exchange_code(access_grant)
+		.set_pkce_verifier(pkce_verifier)
+		.request(&oauth2::reqwest::http_client)
+		.map_err( |_| () )?;
+
+	return Ok( access_token );
 }
