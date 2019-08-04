@@ -1,3 +1,5 @@
+const PUERTO_REDIRECCION_OAUTH2: u16 = 12345_u16;
+
 pub type TokenResponse = oauth2::StandardTokenResponse< oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType >;
 
 /// Retorna el token de access_grant a partir de la peticion que envia el browser cuando
@@ -8,8 +10,9 @@ fn obtener_authorization_code_de_redirect_oauth(
 	csrf_token: &oauth2::CsrfToken,
 ) -> Result<oauth2::AuthorizationCode, ()>
 {
-	let url = url::Url
-		::parse( &format!( "http://localhost{}", request.uri() ) )
+	//HACK(fpalacios): Concatena http://localhost antes del url que mando el server
+	//                 porque la libreria de parsear url no reconoce url relativas o parciales
+	let url = url::Url::parse( &format!( "http://localhost{}", request.uri() ) )
 		.map_err( |_| () )?;
 
 	let mut code  : Option<String> = None;
@@ -27,6 +30,10 @@ fn obtener_authorization_code_de_redirect_oauth(
 		};
 	}
 
+	//NOTE(fpalacios): No estoy seguro que 100% de las veces sea necesario tener el status.
+	//                 tiene sentido que sea obligatorio cuando tenes un csrf_token para
+	//                 checkearlo, pero quisas algun autenticador no pueda conseguirlo.
+	//                 Habria que investigar más sobre eso.
 	if let ( Some(code), Some(status) ) = (code, status) {
 		if csrf_token.secret() == &status {
 			println!("Token status valid");
@@ -39,8 +46,15 @@ fn obtener_authorization_code_de_redirect_oauth(
 
 /// Retorna el token de access_grant que envia el navegador mediante un redirect a la url de redireccion
 #[inline]
-fn atender_redirect(csrf_token: &oauth2::CsrfToken) -> Result<oauth2::AuthorizationCode, ()> {
-	let listener = std::net::TcpListener::bind("127.0.0.1:8080").unwrap();
+fn atender_redirect(
+	csrf_token: &oauth2::CsrfToken,
+	puerto    : u16,
+) -> Result<oauth2::AuthorizationCode, ()> {
+	// TODO(fpalacios): Hacer algo cuando el puerto no este disponible.
+	//                  Capaz probar con otros puertos?
+	let listener = std::net::TcpListener::bind(
+		format!("127.0.0.1:{}", puerto)
+	).unwrap();
 	let stream = listener.incoming().next().unwrap();
 
 	if let Ok(mut stream) = stream {
@@ -52,6 +66,7 @@ fn atender_redirect(csrf_token: &oauth2::CsrfToken) -> Result<oauth2::Authorizat
 			result = Ok(access_grant);
 		}
 
+		//TODO(fpalacios): Poner un mensaje más copado
 		crate::http::responder_http_ok(&mut stream, ":D");
 
 		return result;
@@ -76,7 +91,10 @@ pub fn conseguir_oauth_access_token(
 ) -> Result<crate::oauth::TokenResponse, ()>
 {
 	client = client.set_redirect_url(
-		oauth2::RedirectUrl::new(url::Url::parse("http://localhost:8080").map_err( |_| () )? )
+		oauth2::RedirectUrl::new(
+			url::Url::parse( &format!("http://localhost{}", PUERTO_REDIRECCION_OAUTH2) )
+			.map_err( |_| () )?
+		)
 	);
 
 	let (pkce_challenge, pkce_verifier) = oauth2::PkceCodeChallenge::new_random_sha256();
@@ -94,7 +112,7 @@ pub fn conseguir_oauth_access_token(
 
 	abrir_url_en_navegador(&auth_url);
 
-	let access_grant = atender_redirect(&csrf_token)?;
+	let access_grant = atender_redirect(&csrf_token, PUERTO_REDIRECCION_OAUTH2)?;
 
 	let access_token = client.exchange_code(access_grant)
 		.set_pkce_verifier(pkce_verifier)

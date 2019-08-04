@@ -8,7 +8,7 @@ pub struct GMailOAuth2 {
 impl GMailOAuth2 {
 	pub fn pedir_al_usuario() -> Self {
 		return GMailOAuth2 {
-			usuario     : String::from("fpalacios@scanntech.com"),
+			usuario     : String::from("fedenator7@gmail.com"),
 			access_token: conseguir_gmail_oauth2_access_token().unwrap(),
 		};
 	}
@@ -31,7 +31,7 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 		&self
 	) -> imap::Session< native_tls::TlsStream<std::net::TcpStream> >
 	{
-		
+
 
 
 		let conector_tls = native_tls::TlsConnector::builder()
