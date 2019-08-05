@@ -18,7 +18,7 @@ fn main() {
 
 	let config    = Config::new();
 	let indicador = Indicador::new(&config);
-	let mail      = Mail::new( GMailOAuth2::pedir_al_usuario() );
+	let mut mail  = Mail::new( GMailOAuth2::pedir_al_usuario() );
 
 	std::thread::Builder::new()
 		.name( String::from("update-mail-indicator-thread") )

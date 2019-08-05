@@ -1,6 +1,8 @@
+use oauth2::{ TokenResponse };
+
 const PUERTO_REDIRECCION_OAUTH2: u16 = 12345_u16;
 
-pub type TokenResponse = oauth2::StandardTokenResponse< oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType >;
+pub type StandardTokenResponse = oauth2::StandardTokenResponse< oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType >;
 
 /// Retorna el token de access_grant a partir de la peticion que envia el browser cuando
 /// el usuario autoriza a la aplicacion, puede fallar en caso de que no exista el token
@@ -10,8 +12,8 @@ fn obtener_authorization_code_de_redirect_oauth(
 	csrf_token: &oauth2::CsrfToken,
 ) -> Result<oauth2::AuthorizationCode, ()>
 {
-	//HACK(fpalacios): Concatena http://localhost antes del url que mando el server
-	//                 porque la libreria de parsear url no reconoce url relativas o parciales
+	// HACK(fpalacios): Concatena http://localhost antes del url que mando el server
+	// porque la libreria de parsear url no reconoce url relativas o parciales
 	let url = url::Url::parse( &format!( "http://localhost{}", request.uri() ) )
 		.map_err( |_| () )?;
 
@@ -23,17 +25,17 @@ fn obtener_authorization_code_de_redirect_oauth(
 			"code" => {
 				code = Some( value.into() );
 			}
-			"status" => {
+			"state" => {
 				status = Some( value.into() );
 			}
 			_ => {}
 		};
 	}
 
-	//NOTE(fpalacios): No estoy seguro que 100% de las veces sea necesario tener el status.
-	//                 tiene sentido que sea obligatorio cuando tenes un csrf_token para
-	//                 checkearlo, pero quisas algun autenticador no pueda conseguirlo.
-	//                 Habria que investigar más sobre eso.
+	// NOTE(fpalacios): No estoy seguro que 100% de las veces sea necesario tener el status.
+	// Tiene sentido que sea obligatorio cuando tenes un csrf_token para checkearlo,
+	// pero quisas algun autenticador no pueda conseguirlo.
+	// Habria que investigar más sobre eso.
 	if let ( Some(code), Some(status) ) = (code, status) {
 		if csrf_token.secret() == &status {
 			println!("Token status valid");
@@ -51,7 +53,7 @@ fn atender_redirect(
 	puerto    : u16,
 ) -> Result<oauth2::AuthorizationCode, ()> {
 	// TODO(fpalacios): Hacer algo cuando el puerto no este disponible.
-	//                  Capaz probar con otros puertos?
+	// Capaz probar con otros puertos?
 	let listener = std::net::TcpListener::bind(
 		format!("127.0.0.1:{}", puerto)
 	).unwrap();
@@ -86,20 +88,23 @@ fn abrir_url_en_navegador(url: &url::Url) {
 /// Le pide al usuario que autorice en el navegador, atiende el redirect y retorna el token
 /// si no hubo ningun problema
 pub fn conseguir_oauth_access_token(
-	mut client: oauth2::basic::BasicClient,
-	scopes: Vec<oauth2::Scope>,
-) -> Result<crate::oauth::TokenResponse, ()>
+	cliente: &mut oauth2::basic::BasicClient,
+	scopes : Vec<oauth2::Scope>,
+) -> Result<crate::oauth::StandardTokenResponse, ()>
 {
-	client = client.set_redirect_url(
+	// TODO(fpalcios): Buscar una forma de no tener que clonar el cliente.
+	// Quizas pedir owner de el cliente viejo y retornar el cliente modificado?
+	let mut cliente = cliente.clone();
+	cliente = cliente.set_redirect_url(
 		oauth2::RedirectUrl::new(
-			url::Url::parse( &format!("http://localhost{}", PUERTO_REDIRECCION_OAUTH2) )
+			url::Url::parse( &format!("http://localhost:{}", PUERTO_REDIRECCION_OAUTH2) )
 			.map_err( |_| () )?
 		)
 	);
 
 	let (pkce_challenge, pkce_verifier) = oauth2::PkceCodeChallenge::new_random_sha256();
 
-	let mut auth_url_builder = client
+	let mut auth_url_builder = cliente
 		.authorize_url(oauth2::CsrfToken::new_random);
 
 	for scope in scopes {
@@ -114,10 +119,26 @@ pub fn conseguir_oauth_access_token(
 
 	let access_grant = atender_redirect(&csrf_token, PUERTO_REDIRECCION_OAUTH2)?;
 
-	let access_token = client.exchange_code(access_grant)
+	let access_token = cliente.exchange_code(access_grant)
 		.set_pkce_verifier(pkce_verifier)
 		.request(&oauth2::reqwest::http_client)
 		.map_err( |_| () )?;
 
 	return Ok( access_token );
+}
+
+pub fn refresh_token(
+	token_expirado: &crate::oauth::StandardTokenResponse,
+	cliente       : &mut oauth2::basic::BasicClient,
+) -> Result<StandardTokenResponse, ()>
+{
+	if let Some(refresh_token) = token_expirado.refresh_token() {
+		if let Ok(nuevo_token) = cliente.exchange_refresh_token(refresh_token)
+			.request(&oauth2::reqwest::http_client)
+		{
+			return Ok(nuevo_token);
+		}
+	}
+
+	return Err(());
 }

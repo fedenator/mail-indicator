@@ -2,15 +2,35 @@ use oauth2::{ TokenResponse };
 
 pub struct GMailOAuth2 {
 	pub usuario     : String,
-	pub access_token: crate::oauth::TokenResponse,
+	pub cliente     : oauth2::basic::BasicClient,
+	pub access_token: crate::oauth::StandardTokenResponse,
 }
 
 impl GMailOAuth2 {
 	pub fn pedir_al_usuario() -> Self {
+		let mut cliente = oauth2::basic::BasicClient::new(
+			oauth2::ClientId::new( "933010578097-4hvs3d2rcksvkdhq11nus75kn2kio4om.apps.googleusercontent.com".into() ),
+			Some( oauth2::ClientSecret::new( "3Y8HY6RlecfB0p_zZ8TReHcC".into() ) ),
+			oauth2::AuthUrl::new( url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth").unwrap() ),
+			Some( oauth2::TokenUrl::new( url::Url::parse("https://www.googleapis.com/oauth2/v3/token").unwrap() ) ),
+		);
+
+		let access_token = conseguir_gmail_oauth2_access_token(&mut cliente).unwrap();
+
 		return GMailOAuth2 {
 			usuario     : String::from("fedenator7@gmail.com"),
-			access_token: conseguir_gmail_oauth2_access_token().unwrap(),
+			cliente     : cliente,
+			access_token: access_token,
 		};
+	}
+
+	fn refreshear_token(&mut self) -> Result<(), ()> {
+		if let Ok(nuevo_token) = crate::oauth::refresh_token(&self.access_token, &mut self.cliente) {
+			self.access_token = nuevo_token;
+			return Ok(());
+		}
+
+		return Err(());
 	}
 }
 
@@ -28,12 +48,9 @@ impl imap::Authenticator for GMailOAuth2 {
 
 impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 	fn abrir_sesion(
-		&self
-	) -> imap::Session< native_tls::TlsStream<std::net::TcpStream> >
+		&mut self
+	) -> Result<imap::Session< native_tls::TlsStream<std::net::TcpStream> >, ()>
 	{
-
-
-
 		let conector_tls = native_tls::TlsConnector::builder()
 			.build()
 			.expect("Error al crear el conector tls");
@@ -45,23 +62,31 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 			("imap.gmail.com", 993),
 			"imap.gmail.com",
 			&conector_tls
-		).expect("Error al establecer la conexión con el servidor de correo.");
+		).map_err( |_| () )?;
 
-		return cliente_imap.authenticate("XOAUTH2", self)
-			.expect("Error al autentificarse en el servidor de correo.");
+		match cliente_imap.authenticate("XOAUTH2", self) {
+			Ok(sesion) => {
+				return Ok(sesion);
+			}
+			// En caso de que falle al autentificarse intenta refreshear el token
+			// ya que no hay forma de saber porque falló.
+			Err( (_error, cliente_imap) ) => {
+				self.refreshear_token()?;
+
+				return Ok (
+					cliente_imap.authenticate("XOAUTH2", self).map_err( |_| () )?
+				);
+			}
+		}
 	}
 }
 
 #[inline]
-fn conseguir_gmail_oauth2_access_token() -> Result<crate::oauth::TokenResponse, ()> {
-	let client = oauth2::basic::BasicClient::new(
-		oauth2::ClientId::new( "933010578097-4hvs3d2rcksvkdhq11nus75kn2kio4om.apps.googleusercontent.com".into() ),
-		Some( oauth2::ClientSecret::new( "3Y8HY6RlecfB0p_zZ8TReHcC".into() ) ),
-		oauth2::AuthUrl::new( url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth").map_err( |_| () )? ),
-		Some( oauth2::TokenUrl::new( url::Url::parse("https://www.googleapis.com/oauth2/v3/token").map_err( |_| () )? ) ),
-	);
-
+fn conseguir_gmail_oauth2_access_token(
+	cliente: &mut oauth2::basic::BasicClient
+) -> Result<crate::oauth::StandardTokenResponse, ()>
+{
 	return crate::oauth::conseguir_oauth_access_token(
-		client, vec![oauth2::Scope::new( "https://mail.google.com".into() )]
+		cliente, vec![oauth2::Scope::new( "https://mail.google.com".into() )]
 	);
 }

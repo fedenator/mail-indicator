@@ -19,10 +19,12 @@ where
 		};
 	}
 
-	//TODO(fpalacios): Cambiar para contar las conversaciones sin leer,
-	//                 en vez de contar emails individuales sin leer
-	pub fn count_mails_sin_leer(&self) -> u32{
-		let mut sesion_imap = self.autenticador.abrir_sesion();
+	// TODO(fpalacios): Cambiar para contar las conversaciones sin leer,
+	// en vez de contar emails individuales sin leer
+	pub fn count_mails_sin_leer(&mut self) -> u32 {
+		// TODO(fpalacios): Manejar este error con más gracia
+		let mut sesion_imap = self.autenticador.abrir_sesion()
+			.expect("Error al abrir la sesion imap con el servidor.");
 
 		sesion_imap.examine("INBOX").expect("Error al traer el inbox");
 
