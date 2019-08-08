@@ -57,7 +57,12 @@ fn crear_menu() -> gtk::Menu {
 /**
  * Cambia el icono del indicador por el icono que corresponda al numero dado
  */
-fn cambiar_icono_app_indicator(app_indicator: &mut AppIndicator, config: &Config, mut numero: u32) {
+fn cambiar_icono_app_indicator(
+	app_indicator: &mut AppIndicator,
+	config       : &Config,
+	mut numero   : u32
+)
+{
 	// No hay iconos mas grandes que 9
 	if numero > 9 {
 		numero = 9;
@@ -65,7 +70,7 @@ fn cambiar_icono_app_indicator(app_indicator: &mut AppIndicator, config: &Config
 
 	app_indicator.set_icon_full(
 		config
-			.assets_folder
+			.carpeta_assets
 			.join  ( format!("icon_{}.png", numero) )
 			.to_str()
 			.unwrap(),

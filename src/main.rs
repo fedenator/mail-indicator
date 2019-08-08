@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 pub mod http;
 pub mod mail;
 pub mod oauth;
@@ -8,17 +11,48 @@ pub mod autenticadores;
 use std::sync::{ Arc, Mutex };
 
 use crate::mail::{ Mail };
-use crate::config::{ Config };
 use crate::indicador::{ Indicador };
-use crate::autenticadores::gmail_authenticator::{ GMailOAuth2 };
 
+fn iniciar_log4rs(config: &crate::config::Config) {
+	let appender_consola = log4rs::append::console::ConsoleAppender::builder().build();
+
+	let appender_archivo = log4rs::append::file::FileAppender::builder()
+		.encoder( Box::new( log4rs::encode::pattern::PatternEncoder::new("{d} - {m}{n}") ) )
+		.build( config.carpeta_logs.join("log.log") )
+		.unwrap();
+
+	let config = log4rs::config::Config::builder()
+		// Apender que muestra en la consola
+		.appender(
+			log4rs::config::Appender::builder()
+				.build("appender_consola", Box::new(appender_consola) )
+		)
+		// Appender que guarda en el log permanente
+		.appender(
+			log4rs::config::Appender::builder()
+				.build("appender_archivo", Box::new(appender_archivo) )
+		)
+		.build(
+			log4rs::config::Root::builder()
+				.appender("appender_consola")
+				.appender("appender_archivo")
+				.build(log::LevelFilter::Warn)
+		)
+		.unwrap();
+
+	log4rs::init_config(config)
+		.expect("Error al iniciar la configuracion de log4rs");
+}
 
 fn main() {
 	gtk::init().expect("Error al iniciar GTK");
 
-	let config    = Config::new();
+	let config = crate::config::Config::new();
+
+	iniciar_log4rs(&config);
+
 	let indicador = Indicador::new(&config);
-	let mut mail  = Mail::new( GMailOAuth2::pedir_al_usuario() );
+	let mut mail  = Mail::new( crate::config::autenticador() );
 
 	std::thread::Builder::new()
 		.name( String::from("update-mail-indicator-thread") )
@@ -30,18 +64,22 @@ fn main() {
 				let config_clone    = config_arc.clone();
 				let indicador_clone = indicador_arc.clone();
 
-				let count_mails_sin_leer = mail.count_mails_sin_leer();
+				if let Ok(count_mails_sin_leer) = mail.count_mails_sin_leer() {
+					glib::source::idle_add( move || {
+						indicador_clone.lock().unwrap().cambiar_icono(
+							&config_clone,
+							count_mails_sin_leer
+						);
 
-				glib::source::idle_add( move || {
-					indicador_clone.lock().unwrap().cambiar_icono(
-						&config_clone,
-						count_mails_sin_leer
-					);
+						return glib::source::Continue(false);
+					});
 
-					return glib::source::Continue(false);
-				});
-
-				std::thread::sleep( std::time::Duration::from_secs(15) );
+					std::thread::sleep( std::time::Duration::from_secs(15) );
+				} else {
+					//TODO(fpalacios): Manejar errores mejor
+					error!("Error =P");
+					std::process::abort();
+				}
 			}
 		}).expect("Fallo al crear update-mail-indicator-thread");
 
