@@ -52,7 +52,7 @@ fn main() {
 	iniciar_log4rs(&config);
 
 	let indicador = Indicador::new(&config);
-	let mut mail  = Mail::new( crate::config::autenticador() );
+	let mut mail  = Mail::new( crate::config::autenticador().unwrap() );
 
 	std::thread::Builder::new()
 		.name( String::from("update-mail-indicator-thread") )
@@ -64,21 +64,24 @@ fn main() {
 				let config_clone    = config_arc.clone();
 				let indicador_clone = indicador_arc.clone();
 
-				if let Ok(count_mails_sin_leer) = mail.count_mails_sin_leer() {
-					glib::source::idle_add( move || {
-						indicador_clone.lock().unwrap().cambiar_icono(
-							&config_clone,
-							count_mails_sin_leer
-						);
+				match mail.cant_mails_sin_leer() {
+					Ok(count_mails_sin_leer) => {
+						glib::source::idle_add( move || {
+							indicador_clone.lock().unwrap().cambiar_icono(
+								&config_clone,
+								count_mails_sin_leer
+							);
 
-						return glib::source::Continue(false);
-					});
+							return glib::source::Continue(false);
+						});
 
-					std::thread::sleep( std::time::Duration::from_secs(15) );
-				} else {
+						std::thread::sleep( std::time::Duration::from_secs(15) );
+					}
+					Err(e) => {
 					//TODO(fpalacios): Manejar errores mejor
-					error!("Error =P");
-					std::process::abort();
+						error!("{:?}", e);
+						std::process::abort();
+					}
 				}
 			}
 		}).expect("Fallo al crear update-mail-indicator-thread");

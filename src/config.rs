@@ -31,6 +31,6 @@ impl Config {
 
 // Modificar esta funcion para que retorne el autentificador correspondiete a tu proveedor
 // de correo.
-pub fn autenticador() -> GMailOAuth2 {
+pub fn autenticador() -> Result<GMailOAuth2, crate::oauth::ConseguirAccessTokenError> {
 	return GMailOAuth2::pedir_al_usuario();
 }

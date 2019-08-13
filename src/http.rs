@@ -1,6 +1,5 @@
 use std::io::{ BufReader, BufRead, Write };
 
-
 /// Espera a que el cliente envie un mensaje http y lo parsea
 /// puede fallar en caso de que haya un problema al comunicarse con el cliente o que el
 /// mensaje http no esté completo

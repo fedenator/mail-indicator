@@ -54,9 +54,7 @@ fn crear_menu() -> gtk::Menu {
 	return menu;
 }
 
-/**
- * Cambia el icono del indicador por el icono que corresponda al numero dado
- */
+//Cambia el icono del indicador por el icono que corresponda al numero dado
 fn cambiar_icono_app_indicator(
 	app_indicator: &mut AppIndicator,
 	config       : &Config,
