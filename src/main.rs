@@ -74,15 +74,12 @@ fn main() {
 
 							return glib::source::Continue(false);
 						});
-
-						std::thread::sleep( std::time::Duration::from_secs(15) );
 					}
 					Err(e) => {
-					//TODO(fpalacios): Manejar errores mejor
 						error!("{:?}", e);
-						std::process::abort();
 					}
 				}
+				std::thread::sleep( std::time::Duration::from_secs(15) );
 			}
 		}).expect("Fallo al crear update-mail-indicator-thread");
 

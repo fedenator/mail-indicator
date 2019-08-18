@@ -8,7 +8,7 @@ pub enum MailError {
 	#[fail(display = "Error al abrir sesion [{:?}]", causa)]
 	AlAbrirSesion{ causa: crate::autenticadores::AbrirSesionError },
 
-	#[fail(display = "Erro")]
+	#[fail(display = "Error al interpretar el mensaje")]
 	AlInterpretarMensaje
 }
 
@@ -18,7 +18,7 @@ where
 	Autenticador: crate::autenticadores::ImapAutenticador
 {
 	//TODO(fpalacios): hacer generica la respuesta
-	autenticador: Autenticador,
+	pub autenticador: Autenticador,
 }
 
 impl<Autenticador> Mail<Autenticador>
