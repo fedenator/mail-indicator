@@ -1,33 +1,36 @@
 use std::path::{ PathBuf };
 
-/*--------------------------------- Wapper de todas las configs ---------------------------------*/
+use crate::autenticadores::gmail_authenticator::{ GMailOAuth2 };
+
+/*------------------------------------ Configuracion general ------------------------------------*/
 pub struct Config {
-	pub assets_folder: PathBuf,
+	pub carpeta_instalacion  : PathBuf,
+	pub carpeta_assets       : PathBuf,
+	pub carpeta_configuracion: PathBuf,
+	pub carpeta_logs         : PathBuf,
 }
 
+// Implementa los marcadores para enviar entre hilos
 unsafe impl Send for Config {}
 unsafe impl Sync for Config {}
 
 impl Config {
 	pub fn new() -> Self {
+		let carpeta_instalacion   = PathBuf::from("/etc/mail_indicator");
+		let carpeta_home          = dirs::home_dir().expect("No se pudo encontrar la carpeta home");
+		let carpeta_configuracion = carpeta_home.join(".config/mail_indicator");
+
 		return Config {
-			assets_folder: std::env::current_dir().unwrap().join("assets"),
+			carpeta_instalacion  : carpeta_instalacion.clone(),
+			carpeta_assets       : carpeta_instalacion.join("assets"),
+			carpeta_configuracion: carpeta_configuracion.clone(),
+			carpeta_logs         : carpeta_configuracion.join("logs"),
 		};
 	}
 }
 
-
-/*------------------------------------ Configuracion de IMAP ------------------------------------*/
-pub struct ImapConfig {
-	pub username    : String,
-	pub access_token: String,
-}
-
-impl ImapConfig {
-	pub fn new(access_token: String) -> Self {
-		return ImapConfig {
-			username    : String::from("fedenator7@gmail.com"),
-			access_token: access_token,
-		};
-	}
+// Modificar esta funcion para que retorne el autentificador correspondiete a tu proveedor
+// de correo.
+pub fn autenticador() -> Result<GMailOAuth2, crate::oauth::ConseguirAccessTokenError> {
+	return GMailOAuth2::pedir_al_usuario();
 }
