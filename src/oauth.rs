@@ -39,7 +39,7 @@ fn obtener_authorization_code_de_redirect_oauth(
 	// Habria que investigar más sobre eso.
 	if let ( Some(code), Some(status) ) = (code, status) {
 		if csrf_token.secret() == &status {
-			println!("Token status valid");
+			debug!("Token status valid");
 			return Ok( oauth2::AuthorizationCode::new( code.to_owned() ) )
 		}
 	}

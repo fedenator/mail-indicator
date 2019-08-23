@@ -17,7 +17,7 @@ fn iniciar_log4rs(config: &crate::config::Config) {
 	let appender_consola = log4rs::append::console::ConsoleAppender::builder().build();
 
 	let appender_archivo = log4rs::append::file::FileAppender::builder()
-		.encoder( Box::new( log4rs::encode::pattern::PatternEncoder::new("{d} - {m}{n}") ) )
+		.encoder( Box::new( log4rs::encode::pattern::PatternEncoder::new("{d}|[{f}:{L}]|{l} - {m}{n}") ) )
 		.build( config.carpeta_logs.join("log.log") )
 		.unwrap();
 
@@ -31,6 +31,12 @@ fn iniciar_log4rs(config: &crate::config::Config) {
 		.appender(
 			log4rs::config::Appender::builder()
 				.build("appender_archivo", Box::new(appender_archivo) )
+		)
+		.logger(
+			log4rs::config::Logger::builder()
+				.additive(false)
+				.appenders( vec!["appender_archivo", "appender_consola"] )
+				.build("mail_indicator", log::LevelFilter::Debug)
 		)
 		.build(
 			log4rs::config::Root::builder()
@@ -51,8 +57,12 @@ fn main() {
 
 	iniciar_log4rs(&config);
 
+	info!("Iniciando aplicacion...");
+
 	let indicador = Indicador::new(&config);
 	let mut mail  = Mail::new( crate::config::autenticador().unwrap() );
+
+	info!("Aplicacion iniciada.");
 
 	std::thread::Builder::new()
 		.name( String::from("update-mail-indicator-thread") )

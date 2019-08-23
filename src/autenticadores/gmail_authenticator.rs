@@ -68,13 +68,17 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 		&mut self
 	) -> Result<SesionImap, crate::autenticadores::AbrirSesionError>
 	{
+		debug!("Creando conector tls...");
 		let conector_tls = native_tls::TlsConnector::builder()
 			.build()
 			.expect("Error al crear el conector tls");
+		debug!("Conector tls creado.");
+
 
 		// NOTE(fpalacios): Todavia no entiendo porque hay que pasar el dominio 2 veces,
 		// segun el autor de la libreria es para checkear que el certificado TLS sea valido
 		// pero la verdad que podria clonarlo la libreria. Capaz que hay que leer mas sobre esto.
+		debug!("Creando cliente IMAP...");
 		let cliente_imap = imap::connect(
 			("imap.gmail.com", 993),
 			"imap.gmail.com",
@@ -82,6 +86,7 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 		)
 		.map_err( Box::new )
 		.map_err( |e| crate::autenticadores::AbrirSesionError::AlComunicarse{causa: e} )?;
+		debug!("Cliente IMAP creado.");
 
 		match self.abrir_sesion_imap(cliente_imap) {
 			Ok(sesion) => {
@@ -94,10 +99,11 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
 
 				match self.abrir_sesion_imap(cliente_imap) {
 					Ok(nueva_sesion) => {
-						info!("GMailAutenticator: Se refresheo el token con exito");
+						info!("Se refresheo el token de GMail con exito");
 						return Ok(nueva_sesion);
 					}
-					Err( (_error, cliente_imap) ) => {
+					Err( (error, cliente_imap) ) => {
+						warn!("No se pudo refreshear el token de gmail causa: [{:?}]", error);
 						let access_token = conseguir_gmail_oauth2_access_token( &mut crear_cliente_oauth2() )
 							.map_err( |error| {
 								return crate::autenticadores::AbrirSesionError::AlComunicarse {
