@@ -3,6 +3,7 @@ extern crate log;
 
 pub mod http;
 pub mod mail;
+pub mod logs;
 pub mod oauth;
 pub mod config;
 pub mod indicador;
@@ -48,6 +49,16 @@ fn iniciar_log4rs(config: &crate::config::Config) {
 
 	log4rs::init_config(config)
 		.expect("Error al iniciar la configuracion de log4rs");
+}
+
+fn iniciar_gestor_tareas() -> logs::GestorTareas {
+	let escritores = vec![
+		
+	];
+
+	let gestor = logs::GestorTareas::new(escritores);
+
+	return gestor;
 }
 
 fn main() {

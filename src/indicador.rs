@@ -10,7 +10,7 @@ use crate::config::{ Config };
 #[derive(Clone)]
 pub struct Indicador {
 	app_indicator: Arc< Mutex<AppIndicator> >,
-	menu         : gtk::Menu
+	menu         : gtk::Menu,
 }
 
 unsafe impl Send for Indicador {}
