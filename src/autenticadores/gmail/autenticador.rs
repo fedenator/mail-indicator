@@ -33,6 +33,45 @@ impl GMailOAuth2Autenticador {
 		return cliente_imap.authenticate("XOAUTH2", self);
 	}
 
+	/// Recarga el access_token pidiendole al usuario que se autentifique denuevo.
+	fn recargar_access_token(
+		&mut self,
+		cliente_imap: ClienteImap
+	) -> Result<SesionImap, crate::autenticadores::AbrirSesionError>
+	{
+		let access_token = conseguir_gmail_oauth2_access_token( &mut crear_cliente_oauth2() )
+			.map_err( |error| {
+				return crate::autenticadores::AbrirSesionError::AlComunicarse {
+					causa: Box::new(error)
+				};
+			})?;
+
+		self.access_token = access_token;
+		return self.abrir_sesion_imap(cliente_imap)
+			.map_err( |(error, _cliente)| {
+				match error {
+					imap::error::Error::Io{..}
+					| imap::error::Error::ConnectionLost{..}
+					| imap::error::Error::Tls{..}
+					| imap::error::Error::TlsHandshake{..}
+					| imap::error::Error::Append{..}
+					| imap::error::Error::Bad{..}
+					| imap::error::Error::Parse{..}
+					| imap::error::Error::Validate{..}
+					 => {
+						return crate::autenticadores::AbrirSesionError::AlComunicarse {
+							causa: Box::new(error)
+						};
+					}
+					imap::error::Error::No {..} => {
+						return crate::autenticadores::AbrirSesionError::AlAutentificarse {
+							causa: Box::new(error)
+						};
+					}
+				}
+			});
+	}
+
 	fn refreshear_token(
 		&mut self
 	) -> Result<(), crate::oauth::RefreshTokenError>
@@ -91,48 +130,23 @@ impl crate::autenticadores::ImapAutenticador for GMailOAuth2Autenticador {
 				return Ok(sesion);
 			}
 			Err( (_error, cliente_imap) ) => {
-				self.refreshear_token()
-					.map_err(Box::new)
-					.map_err( |e| crate::autenticadores::AbrirSesionError::AlAutentificarse{causa: e} )?;
 
-				match self.abrir_sesion_imap(cliente_imap) {
-					Ok(nueva_sesion) => {
-						info!("GMailAutenticator: Se refresheo el token con exito");
-						return Ok(nueva_sesion);
+				// Si hay exito al refreshear el token se intenta de nuevo
+				// con el access_token en la estructura.
+				if let Ok(()) = self.refreshear_token() {
+					match self.abrir_sesion_imap(cliente_imap) {
+						Ok(nueva_sesion) => {
+							info!("GMailAutenticator: Se refresheo el token con exito");
+							return Ok(nueva_sesion);
+						}
+						Err( (_error, cliente_imap) ) => {
+							return self.recargar_access_token(cliente_imap);
+						}
 					}
-					Err( (_error, cliente_imap) ) => {
-						let access_token = conseguir_gmail_oauth2_access_token( &mut crear_cliente_oauth2() )
-							.map_err( |error| {
-								return crate::autenticadores::AbrirSesionError::AlComunicarse {
-									causa: Box::new(error)
-								};
-							})?;
-
-						self.access_token = access_token;
-						return self.abrir_sesion_imap(cliente_imap)
-							.map_err( |(error, _cliente)| {
-								match error {
-									imap::error::Error::Io{..}
-									| imap::error::Error::ConnectionLost{..}
-									| imap::error::Error::Tls{..}
-									| imap::error::Error::TlsHandshake{..}
-									| imap::error::Error::Append{..}
-									| imap::error::Error::Bad{..}
-									| imap::error::Error::Parse{..}
-									| imap::error::Error::Validate{..}
-									 => {
-										return crate::autenticadores::AbrirSesionError::AlComunicarse {
-											causa: Box::new(error)
-										};
-									}
-									imap::error::Error::No {..} => {
-										return crate::autenticadores::AbrirSesionError::AlAutentificarse {
-											causa: Box::new(error)
-										};
-									}
-								}
-							});
-					}
+				}
+				// Sino directamente se consigue un access_token nuevo.
+				else {
+					return self.recargar_access_token(cliente_imap);
 				}
 			}
 		}
