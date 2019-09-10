@@ -3,19 +3,22 @@ use oauth2::{ TokenResponse };
 pub type SesionImap  = imap::Session< native_tls::TlsStream<std::net::TcpStream> >;
 type     ClienteImap = imap::Client< native_tls::TlsStream<std::net::TcpStream> >;
 
-pub struct GMailOAuth2 {
+pub struct GMailOAuth2Autenticador {
 	usuario      : String,
 	cliente_oauth: oauth2::basic::BasicClient,
 	access_token : crate::oauth::StandardTokenResponse,
 }
 
-impl GMailOAuth2 {
+impl GMailOAuth2Autenticador {
 	pub fn pedir_al_usuario() -> Result<Self, crate::oauth::ConseguirAccessTokenError> {
 		let mut cliente_oauth = crear_cliente_oauth2();
 		let access_token = conseguir_gmail_oauth2_access_token(&mut cliente_oauth)?;
 
-		return Ok(GMailOAuth2 {
-			usuario      : String::from("fedenator7@gmail.com"),
+		let email = crate::google_api::obtener_email(&access_token)
+			.map_err( |e| crate::oauth::ConseguirAccessTokenError::AlObtenerInfoDeCuenta{causa: e})?;
+
+		return Ok(GMailOAuth2Autenticador {
+			usuario      : email,
 			cliente_oauth: cliente_oauth,
 			access_token : access_token,
 		});
@@ -42,7 +45,7 @@ impl GMailOAuth2 {
 	}
 }
 
-impl imap::Authenticator for GMailOAuth2 {
+impl imap::Authenticator for GMailOAuth2Autenticador {
 	type Response = String;
 
 	fn process(&self, _data: &[u8]) -> Self::Response {
@@ -54,7 +57,7 @@ impl imap::Authenticator for GMailOAuth2 {
 	}
 }
 
-impl crate::autenticadores::ImapAutenticador for GMailOAuth2 {
+impl crate::autenticadores::ImapAutenticador for GMailOAuth2Autenticador {
 
 
 	//TODO(fpalacios): Hay mucho manejo de error hecho a mano en esta funcion
@@ -151,6 +154,10 @@ fn conseguir_gmail_oauth2_access_token(
 ) -> Result<crate::oauth::StandardTokenResponse, crate::oauth::ConseguirAccessTokenError>
 {
 	return crate::oauth::conseguir_access_token(
-		cliente_oauth, vec![oauth2::Scope::new( "https://mail.google.com".into() )]
+		cliente_oauth,
+		vec![
+			oauth2::Scope::new( "https://mail.google.com".into() ), // scope para imap
+			oauth2::Scope::new( "https://www.googleapis.com/auth/userinfo.email".into() ), // scope para obtener email
+		]
 	);
 }

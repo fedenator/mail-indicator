@@ -110,6 +110,9 @@ pub enum ConseguirAccessTokenError {
 	#[fail(display = "Error al interpretar la url")]
 	AlInterpretarUrl,
 
+	#[fail(display = "Error al obtener info de cuenta [{:?}]", causa)]
+	AlObtenerInfoDeCuenta{ causa: reqwest::Error },
+
 	#[fail(display = "Error al atender el redirect del cliente [{:?}]", causa)]
 	AlAtenderRedirect{ causa: AtenderRedirectError },
 

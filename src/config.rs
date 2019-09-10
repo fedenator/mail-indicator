@@ -1,6 +1,6 @@
 use std::path::{ PathBuf };
 
-use crate::autenticadores::gmail_authenticator::{ GMailOAuth2 };
+use crate::autenticadores::gmail::autenticador::{ GMailOAuth2Autenticador };
 
 /*------------------------------------ Configuracion general ------------------------------------*/
 pub struct Config {
@@ -31,6 +31,6 @@ impl Config {
 
 // Modificar esta funcion para que retorne el autentificador correspondiete a tu proveedor
 // de correo.
-pub fn autenticador() -> Result<GMailOAuth2, crate::oauth::ConseguirAccessTokenError> {
-	return GMailOAuth2::pedir_al_usuario();
+pub fn autenticador() -> Result<GMailOAuth2Autenticador, crate::oauth::ConseguirAccessTokenError> {
+	return GMailOAuth2Autenticador::pedir_al_usuario();
 }

@@ -1,4 +1,4 @@
-pub mod gmail_authenticator;
+pub mod gmail;
 
 #[derive(failure::Fail, Debug)]
 pub enum AbrirSesionError {

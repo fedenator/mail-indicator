@@ -6,6 +6,7 @@ pub mod mail;
 pub mod oauth;
 pub mod config;
 pub mod indicador;
+pub mod google_api;
 pub mod autenticadores;
 
 use std::sync::{ Arc, Mutex };
