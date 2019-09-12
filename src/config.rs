@@ -16,9 +16,9 @@ unsafe impl Sync for Config {}
 
 impl Config {
 	pub fn new() -> Self {
-		let carpeta_instalacion   = PathBuf::from("/etc/mail_indicator");
+		let carpeta_instalacion   = PathBuf::from("/etc/mail-indicator");
 		let carpeta_home          = dirs::home_dir().expect("No se pudo encontrar la carpeta home");
-		let carpeta_configuracion = carpeta_home.join(".config/mail_indicator");
+		let carpeta_configuracion = carpeta_home.join(".config/mail-indicator");
 
 		return Config {
 			carpeta_instalacion  : carpeta_instalacion.clone(),
