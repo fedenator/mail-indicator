@@ -29,3 +29,14 @@ failure = "0.1.5"
 
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+
+[package.metadata.deb]
+license-file = ["LICENSE.en", "4"]
+extended-description = "Un programa que te muestra la cantidad de emails sin leer."
+depends = "$auto"
+section = "mails"
+priority = "optional"
+assets = [
+	["target/release/mail-indicator", "usr/bin/", "755"],
+	["assets/*", "etc/mail-indicator/assets/", "655"],
+]
