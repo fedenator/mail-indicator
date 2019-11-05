@@ -28,13 +28,13 @@ impl Indicador {
 			menu         : crear_menu(),
 		};
 
-		indicador.cambiar_icono(&config, 0_u32);
+		indicador.cambiar_icono(&config, None);
 		indicador.app_indicator.lock().unwrap().set_menu(&mut indicador.menu);
 
 		return indicador;
 	}
 
-	pub fn cambiar_icono(&mut self, config: &Config, numero: u32) {
+	pub fn cambiar_icono(&mut self, config: &Config, numero: Option<u32>) {
 		cambiar_icono_app_indicator(&mut self.app_indicator.lock().unwrap(), config, numero);
 	}
 }
@@ -58,20 +58,32 @@ fn crear_menu() -> gtk::Menu {
 fn cambiar_icono_app_indicator(
 	app_indicator: &mut AppIndicator,
 	config       : &Config,
-	mut numero   : u32
+	numero       : Option<u32>,
 )
 {
-	// No hay iconos mas grandes que 9
-	if numero > 9 {
-		numero = 9;
+	if let Some(mut numero) = numero {
+		// No hay iconos mas grandes que 9
+		if numero > 9 {
+			numero = 9;
+		}
+
+		app_indicator.set_icon_full(
+			config
+				.carpeta_assets
+				.join  ( format!("icon_{}.png", numero) )
+				.to_str()
+				.unwrap(),
+			"icon"
+		);
+	} else {
+		app_indicator.set_icon_full(
+			config
+				.carpeta_assets
+				.join  ("icon_refresh.png")
+				.to_str()
+				.unwrap(),
+			"icon"
+		);
 	}
 
-	app_indicator.set_icon_full(
-		config
-			.carpeta_assets
-			.join  ( format!("icon_{}.png", numero) )
-			.to_str()
-			.unwrap(),
-		"icon"
-	);
 }

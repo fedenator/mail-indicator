@@ -68,6 +68,11 @@ fn main() {
 			let indicador_arc = Arc::new( Mutex::new(indicador) );
 
 			loop {
+				indicador_arc.lock().unwrap().cambiar_icono(
+					&config_arc,
+					None
+				);
+
 				let config_clone    = config_arc.clone();
 				let indicador_clone = indicador_arc.clone();
 
@@ -76,7 +81,7 @@ fn main() {
 						glib::source::idle_add( move || {
 							indicador_clone.lock().unwrap().cambiar_icono(
 								&config_clone,
-								count_mails_sin_leer
+								Some(count_mails_sin_leer)
 							);
 
 							return glib::source::Continue(false);
